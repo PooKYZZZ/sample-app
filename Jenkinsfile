@@ -108,11 +108,13 @@ EOF
                     timeout(time: 30, unit: 'SECONDS') {
                         waitUntil {
                             try {
-                                sh script: """
-                                    curl --connect-timeout 2 --max-time 5 \\
-                                        --silent --fail \\
-                                        http://localhost:${env.APP_PORT}/ >/dev/null 2>&1
-                                """, returnStatus: true
+                                sh '''
+                                    if curl --connect-timeout 2 --max-time 5 --silent --fail http://172.17.0.1:5050/ >/dev/null 2>&1; then
+                                        exit 0
+                                    else
+                                        exit 1
+                                    fi
+                                '''
                                 return true
                             } catch (Exception e) {
                                 echo "Application not ready yet, waiting..."
@@ -132,14 +134,14 @@ EOF
                 script {
                     echo "Testing application functionality..."
 
-                    sh """
+                    sh '''
                         # Test 1: Basic connectivity
                         echo "Test 1: Checking basic connectivity..."
-                        curl --fail http://localhost:${env.APP_PORT}/
+                        curl --fail http://172.17.0.1:5050/
 
                         # Test 2: Check for expected content
                         echo "Test 2: Verifying expected response content..."
-                        if curl http://localhost:${env.APP_PORT}/ | grep -q "You are calling me from"; then
+                        if curl http://172.17.0.1:5050/ | grep -q "You are calling me from"; then
                             echo "✅ Response content test PASSED"
                         else
                             echo "❌ Response content test FAILED"
@@ -148,7 +150,7 @@ EOF
 
                         # Test 3: Check container is running
                         echo "Test 3: Verifying container status..."
-                        if docker ps --filter "name=${env.CONTAINER_NAME}" --filter "status=running" | grep -q "${env.CONTAINER_NAME}"; then
+                        if docker ps --filter "name=samplerunning" --filter "status=running" --format '{{.Names}}' | grep -q '^samplerunning$'; then
                             echo "✅ Container status test PASSED"
                         else
                             echo "❌ Container status test FAILED"
@@ -156,7 +158,7 @@ EOF
                         fi
 
                         echo "🎉 All tests PASSED!"
-                    """
+                    '''
                 }
             }
         }
@@ -188,7 +190,8 @@ EOF
             🎉 PIPELINE SUCCESS! 🎉
 
             Application is running successfully:
-            - URL: http://localhost:${env.APP_PORT}
+            - Host URL: http://localhost:${env.APP_PORT}
+            - Jenkins URL: http://172.17.0.1:${env.APP_PORT}
             - Container: ${env.CONTAINER_NAME}
             - Image: ${env.DOCKER_IMAGE}:latest
 
